@@ -4,6 +4,8 @@ from __future__ import print_function
 
 import numpy as np
 import scipy.interpolate as spi
+import os
+from . import TRACKS_DIR
 
 class PMSTracks(object):
     """
@@ -83,9 +85,9 @@ class PMSTracks(object):
         int2_value, i2_status, l2_status = self._my_lint(im2, label, age)
         status = i1_status+3*i2_status
         #
-        if self.mass[im1] <= mass:
+        if self.mass[im1] >= mass:
             int_value = int1_value
-        elif self.mass[im2] >= mass:
+        elif self.mass[im2] <= mass:
             int_value = int2_value
         else:
             dm = mass - self.mass[im1]
@@ -162,8 +164,11 @@ class PMSTracks(object):
     #
     # This function reads the BHAC15 Evolutionary tracks
     def reader_BHAC15(self):
-        self.infile_models = '/Users/ltesti/git_repository/diskpop/pmstracks/tracks/'+self.tracks+'/BHAC15_tracks+structure'
-        #self.infile_models = './pmstracks/tracks/'+self.tracks+'/BHAC15_tracks+structure'
+        #
+        # Define the file to read
+        tracks_path = os.path.join(TRACKS_DIR, self.tracks)
+        self.infile_models = os.path.join(tracks_path, 'BHAC15_tracks+structure')
+
         if self.verbose:
             print("Reading file: {}".format(self.infile_models))
 
@@ -179,21 +184,27 @@ class PMSTracks(object):
         all_teff = []
         newmass = True
         f = open(self.infile_models, 'r')
+        dowrite = False
         for line in f.readlines():
             if (doread):
-                if line[0] == '!':
-                    pass
+                if (line[0] == '!'):
+                    if dowrite and (newmass != True):
+                        self.tracks.append({'model_mass': mstar[-1], 'mass': mstar[-1] * np.ones(len(age)),
+                                            'nage': len(age), 'lage': np.array(age),
+                                            'llum': np.array(lum), 'llum_int': spi.interp1d(np.array(age), np.array(lum)),
+                                            'teff': np.array(teff),
+                                            'teff_int': spi.interp1d(np.array(age), np.array(teff))})
+                        dowrite = False
+                        newmass = True
+                        age = []
+                        lum = []
+                        teff = []
+                    else:
+                        pass
                 elif line[0] == '\n':
-                    if newmass != True:
-                        self.tracks.append({'model_mass':mstar[-1], 'mass': mstar[-1]*np.ones(len(age)),
-                                            'nage':len(age), 'lage':np.array(age),
-                                            'llum':np.array(lum), 'llum_int': spi.interp1d(np.array(age),np.array(lum)),
-                                            'teff':np.array(teff), 'teff_int': spi.interp1d(np.array(age),np.array(teff))})
-                    newmass = True
-                    age = []
-                    lum = []
-                    teff = []
+                    pass
                 else:
+                    dowrite = True
                     columns = line.split()
                     if newmass:
                         mstar.append(float(columns[0]))
