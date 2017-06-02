@@ -12,8 +12,10 @@ setup(
     version=__version__,
     author="Leonardo Testi",
     author_email="ltesti120a@gmail.com",
-    packages=find_packages(),
-    url="https://github.com/ltesti/diskpop/",
+    #packages=find_packages(),
+    package_dir={'': './'},
+    packages=['pmstracks'],
+    url="https://github.com/ltesti/pmstracks/",
     license="GPL",
     description="Pre main sequence tracks utilities",
     long_description=open("README.md").read() + "\n\n"
@@ -29,7 +31,7 @@ setup(
         "Intended Audience :: Science/Research",
         # "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 2',
     ],
     # ext_modules = ["DiscEvolution"]
 )
