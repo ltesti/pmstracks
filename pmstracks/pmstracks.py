@@ -12,20 +12,26 @@ class PMSTracks(object):
     Docstring
 
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, tracks='BHAC15', verbose=False):
         """
         Docstring
 
         """
-        self.tracks = kwargs.get('tracks', 'BHAC15')
+        self.tracks_name = tracks
 
-        self.verbose = kwargs.get('verbose', False)
+        self.verbose = verbose
 
-        if self.tracks == 'BHAC15':
-            # self.reader = self.reader_BHAC15
-            self.reader_BHAC15()
+        self.tracks_path = os.path.join(TRACKS_DIR, self.tracks_name)
+
+        if self.tracks_name == 'BHAC15':
+            self.infile_models = os.path.join(self.tracks_path, 'BHAC15_tracks+structure')
+            self.reader = self.reader_BHAC15
         else:
             raise ValueError("No valid reader method specified in pmstracks.")
+        #
+        self.mass, self.tracks = self.reader()
+        self.mass, self.tracks = self._sort_tracks()
+        self.interp_age = self._tracks_age_interp()
 
     #
     # This method uses the scipy.interpolate.interp1d
@@ -113,7 +119,7 @@ class PMSTracks(object):
             intval = ((self.tracks[im])[label])[-1]
             status = 2
         else:
-            intval = ((self.tracks[im])[intlabel])(age)
+            intval = ((self.interp_age[im])[intlabel])(age)
         #
         return intval, status, states[status]
 
@@ -162,26 +168,20 @@ class PMSTracks(object):
         return spi.interp2d(self.all_tracks['lmass'], self.all_tracks['lage'], self.all_tracks[label])
 
     #
-    # This function reads the BHAC15 Evolutionary tracks
+    # This function is the reader for the BHAC15 Evolutionary tracks
     def reader_BHAC15(self):
         #
         # Define the file to read
-        tracks_path = os.path.join(TRACKS_DIR, self.tracks)
-        self.infile_models = os.path.join(tracks_path, 'BHAC15_tracks+structure')
 
         if self.verbose:
             print("Reading file: {}".format(self.infile_models))
 
         doread = False
         mstar = []
-        self.tracks = []
+        tracks = []
         age = []
         lum = []
         teff = []
-        all_mass = []
-        all_age = []
-        all_lum = []
-        all_teff = []
         newmass = True
         f = open(self.infile_models, 'r')
         dowrite = False
@@ -189,11 +189,9 @@ class PMSTracks(object):
             if (doread):
                 if (line[0] == '!'):
                     if dowrite and (newmass != True):
-                        self.tracks.append({'model_mass': mstar[-1], 'mass': mstar[-1] * np.ones(len(age)),
+                        tracks.append({'model_mass': mstar[-1], 'mass': mstar[-1] * np.ones(len(age)),
                                             'nage': len(age), 'lage': np.array(age),
-                                            'llum': np.array(lum), 'llum_int': spi.interp1d(np.array(age), np.array(lum)),
-                                            'teff': np.array(teff),
-                                            'teff_int': spi.interp1d(np.array(age), np.array(teff))})
+                                            'llum': np.array(lum), 'teff': np.array(teff) })
                         dowrite = False
                         newmass = True
                         age = []
@@ -212,10 +210,6 @@ class PMSTracks(object):
                     age.append(float(columns[1]))
                     lum.append(float(columns[3]))
                     teff.append(float(columns[2]))
-                    all_mass.append(float(columns[0]))
-                    all_age.append(float(columns[1]))
-                    all_lum.append(float(columns[3]))
-                    all_teff.append(float(columns[2]))
 
             else:
                 if line[0] == '!':
@@ -223,10 +217,32 @@ class PMSTracks(object):
                     #nex += 1
 
         f.close()
-        self.mass = np.array(mstar)
-        #print('Mass = {}'.format(mstar))
-        self.all_tracks = {'mass': np.array(all_mass), 'lage': np.array(all_age),
-                           'llum': np.array(all_lum), 'teff': np.array(all_teff)}
+        #
+        return np.array(mstar), tracks
 
+    #
+    # This method sorts the tracks in increasing mass and per age for each mass
+    def _sort_tracks(self):
+        msort = np.argsort(self.mass)
+        sort_mass = self.mass[msort]
+        sort_tracks = []
+        for im in range(len(self.mass)):
+            sort_tracks.append(self.tracks[msort[im]])
+            isort = np.argsort((sort_tracks[im])['lage'])
+            ((sort_tracks[im])['lage'])[:] = ((self.tracks[msort[im]])['lage'])[isort]
+            ((sort_tracks[im])['llum'])[:] = ((self.tracks[msort[im]])['llum'])[isort]
+            ((sort_tracks[im])['teff'])[:] = ((self.tracks[msort[im]])['teff'])[isort]
+
+        return sort_mass, sort_tracks
+
+    #
+    # this method sets up the age interpolators
+    def _tracks_age_interp(self):
+        #
+        interp_age = []
+        for im in range(len(self.mass)):
+            interp_age.append({'llum_int': spi.interp1d((self.tracks[im])['lage'], (self.tracks[im])['llum']),
+                               'teff_int': spi.interp1d((self.tracks[im])['lage'], (self.tracks[im])['teff'])})
+        return interp_age
 
 
