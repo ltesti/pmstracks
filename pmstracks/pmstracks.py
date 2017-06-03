@@ -5,6 +5,7 @@ from __future__ import print_function
 import numpy as np
 import scipy.interpolate as spi
 import os
+import glob
 from . import TRACKS_DIR
 
 class PMSTracks(object):
@@ -26,6 +27,12 @@ class PMSTracks(object):
         if self.tracks_name == 'BHAC15':
             self.infile_models = os.path.join(self.tracks_path, 'BHAC15_tracks+structure')
             self.reader = self.reader_BHAC15
+        elif self.tracks_name == 'Siess00':
+            self.infile_models = glob.glob(os.path.join(self.tracks_path, "*.hrd"))
+            if self.verbose:
+                print('{}'.format(self.infile_models))
+            self.reader = self.reader_Siess00
+
         else:
             raise ValueError("No valid reader method specified in pmstracks.")
         #
@@ -168,14 +175,46 @@ class PMSTracks(object):
         return spi.interp2d(self.all_tracks['lmass'], self.all_tracks['lage'], self.all_tracks[label])
 
     #
+    # This function is the reader for the Siess00 Evolutionary tracks
+    def reader_Siess00(self):
+        #
+        # Define the file to read
+        #
+        mstar = []
+        tracks = []
+        for i_f in self.infile_models:
+            age = []
+            lum = []
+            teff = []
+            isfirst = True
+            if self.verbose:
+                print("Reading file: {}".format(i_f))
+            f = open(i_f, 'r')
+            for line in f.readlines():
+                if line[0] != '#':
+                    columns = line.split()
+                    if isfirst:
+                        mstar.append(float(columns[9]))
+                        isfirst = False
+                    age.append(np.log10(float(columns[10])))
+                    lum.append(np.log10(float(columns[2])))
+                    teff.append(float(columns[6]))
+            f.close()
+            tracks.append({'model_mass': mstar[-1], 'mass': mstar[-1] * np.ones(len(age)),
+                           'nage': len(age), 'lage': np.array(age),
+                           'llum': np.array(lum), 'teff': np.array(teff)})
+            #
+        return np.array(mstar), tracks
+
+    #
     # This function is the reader for the BHAC15 Evolutionary tracks
     def reader_BHAC15(self):
         #
         # Define the file to read
-
+        #
         if self.verbose:
             print("Reading file: {}".format(self.infile_models))
-
+        #
         doread = False
         mstar = []
         tracks = []
@@ -214,8 +253,7 @@ class PMSTracks(object):
             else:
                 if line[0] == '!':
                     doread = True
-                    #nex += 1
-
+        #
         f.close()
         #
         return np.array(mstar), tracks
