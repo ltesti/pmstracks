@@ -168,6 +168,41 @@ class PMSTracks(object):
     #
     # This function is the reader for the Siess00 Evolutionary tracks
     def reader_Siess00(self):
+        """
+        Reader for Siess et al. (2000) track files
+
+        The track files are downloaded from the Siess server and not edited
+        The location of the tracks are defined by the attribute self.infile_models,
+        which, in this case, is a list contaning all the files that need to be read.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        mass, tracks
+
+        mass: a numpy array containing the mass of each track
+
+        tracks: a list of dictionaries containing all the tracks data
+                'model_mass': mass for the track
+                'mass': numpy array containing the same mass for each timestep (redundant, could be removed)
+                'nage': number of time steps in the track (redundant, could be removed)
+                'lage': numpy array of the time steps for this track
+                'llum': numpy array of the log10(L/Lsun) for this track
+                'teff': numpy array of the effective temperatures for this track
+
+        Examples
+        --------
+        after defining self.infile_models so that is points to the file containing the tracks,
+        running:
+
+        self.mass, self.tracks = self.reader_BHAC15()
+
+        will read the file and fill in the self.mass and self.tracks attributes
+
+        """
         #
         # Define the file to read
         #
@@ -200,6 +235,40 @@ class PMSTracks(object):
     #
     # This function is the reader for the BHAC15 Evolutionary tracks
     def reader_BHAC15(self):
+        """
+        Reader for Baraffe et al. (2015) track files
+
+        The track files are downloaded from the Baraffe server and not edited
+        The location of the tracks are defined by the attribute self.infile_models
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        mass, tracks
+
+        mass: a numpy array containing the mass of each track
+
+        tracks: a list of dictionaries containing all the tracks data
+                'model_mass': mass for the track
+                'mass': numpy array containing the same mass for each timestep (redundant, could be removed)
+                'nage': number of time steps in the track (redundant, could be removed)
+                'lage': numpy array of the time steps for this track
+                'llum': numpy array of the log10(L/Lsun) for this track
+                'teff': numpy array of the effective temperatures for this track
+
+        Examples
+        --------
+        after defining self.infile_models so that is points to the file containing the tracks,
+        running:
+
+        self.mass, self.tracks = self.reader_BHAC15()
+
+        will read the file and fill in the self.mass and self.tracks attributes
+
+        """
         #
         # Define the file to read
         #
@@ -252,6 +321,31 @@ class PMSTracks(object):
     #
     # This method sorts the tracks in increasing mass and per age for each mass
     def _sort_tracks(self):
+        """
+        Used to sort the tracks by mass and then each track by age.
+
+        Parameters
+        ----------
+        self.mass : numpy array
+            Array with the values of the masses for each track.
+        self.tracks : list of track dictionaries
+            Each element contains a dictionary with the track data.
+
+        Returns
+        -------
+        sort_mass : numpy array
+            copy of self.mass sorted by increasing mass
+        sort_tracks : list of track disctionaries
+            copy of self.tracks sorted by mass and with the tracks resoted by increasing age
+
+        Examples
+        --------
+        This method can be called after a track reader has filled self.mass and self.tracks:
+        self.mass, self.tracks = self._sort_tracks()
+
+        this will resort in place self.mass and self.tracks
+
+        """
         msort = np.argsort(self.mass)
         sort_mass = self.mass[msort]
         sort_tracks = []
@@ -267,6 +361,33 @@ class PMSTracks(object):
     #
     # this method sets up the age interpolators
     def _tracks_age_interp(self):
+        """
+        Used to compute the interpolation functions for llum and teff as a function of age.
+        Uses the scipy.interpolate.interp1d implementation of a linear interpolation, edges
+        probelms need to be checked and cured separately.
+
+        Parameters
+        ----------
+        self.mass : numpy array
+            Array with the values of the masses for each track.
+        self.tracks : list of track dictionaries
+            Each element contains a dictionary with the track data.
+
+        Returns
+        -------
+        interp_age : list of track l,t interpolation functions
+            assumes that self.tracks have been sorted with _sort_tracks()
+
+        Examples
+        --------
+        This method can be called after a track reader has filled self.mass and self.tracks, and
+        _sort_tracks() has been used to resort them in place:
+
+        self.interp_age = self._tracks_age_interp()
+
+        self.interp_age is the list of dictionaries containing the llum and teff interpolators
+
+        """
         #
         interp_age = []
         for im in range(len(self.mass)):
