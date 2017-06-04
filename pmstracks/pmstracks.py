@@ -166,15 +166,6 @@ class PMSTracks(object):
         return imin, imax, status, states[status]
 
     #
-    # This method uses the scipy.interpolate.interp2d
-    #   to create the interpolation function, it has to be
-    #   called using the correct dictionary label for the quantity
-    #   that we want to get out.
-    def interpolator2d(self, label):
-        #
-        return spi.interp2d(self.all_tracks['lmass'], self.all_tracks['lage'], self.all_tracks[label])
-
-    #
     # This function is the reader for the Siess00 Evolutionary tracks
     def reader_Siess00(self):
         #
