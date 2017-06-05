@@ -8,14 +8,43 @@ import os
 import glob
 from . import TRACKS_DIR
 
+
 class PMSTracks(object):
     """
-    Docstring
+    This class defines the PMS tracks object and the methods to interpolate
+    the tracks and obtain the values of the stellar parameters
+
+    When the object is instantiated, it creates the tracks data by reading the
+    specified set of tracks and creates the methods to interpolate the tracks
+
+    the object can later be interrogated to return the interpolated value
+    of the tracks.
+
+    The track options are defined in __init__()
+
+    The interpolation method is implemented in interpolator_bilinear()
 
     """
     def __init__(self, tracks='BHAC15', verbose=False):
         """
-        Docstring
+        When instantiated, the object creates a set of pms tracks reading the
+        appropriate track files and the interpolators used to manipulate the
+        tracks and extract the stellar properties for a given pair of mass and age.
+
+        At the moment we have implemented readers for the following tracks:
+         BHAC15  : Baraffe et al. 2015 tracks
+         Siess00 : Siess et al. 2000 tracks
+
+        Parameters
+        ----------
+
+        tracks : string
+
+        string code for the tracks to be read, default is Baraffe et al. 2015 tracks
+
+        verbose : boolean
+
+        print out status messages, default is False
 
         """
         self.tracks_name = tracks
@@ -26,12 +55,12 @@ class PMSTracks(object):
 
         if self.tracks_name == 'BHAC15':
             self.infile_models = os.path.join(self.tracks_path, 'BHAC15_tracks+structure')
-            self.reader = self.reader_BHAC15
+            self.reader = self.reader_bhac15
         elif self.tracks_name == 'Siess00':
             self.infile_models = glob.glob(os.path.join(self.tracks_path, "*.hrd"))
             if self.verbose:
                 print('{}'.format(self.infile_models))
-            self.reader = self.reader_Siess00
+            self.reader = self.reader_siess00
 
         else:
             raise ValueError("No valid reader method specified in pmstracks.")
@@ -51,6 +80,56 @@ class PMSTracks(object):
     #   interpolation and using the correct dictionary label for the quantity
     #   that we want to get out.
     def interpolator_bilinear(self, mass, age, label, debug=False):
+        """
+        return the interpolated value for the specified label parameter
+
+        This is the method that should be called from top level, once the
+        class has been properly initialized, to obtain the interpolated value of the
+        "label" parameter for a given mass and age.
+
+        Parameters
+        ----------
+
+        mass : float
+
+        value of the mass for which we want to have the interpolation
+        (expected units: Msun)
+
+        age : float
+
+        value of the age for which we want to have the interpolation
+        (expected units: Log10(age/Myr)
+
+        label : string
+
+        dictionary label for the quantity to be interpolated
+
+        debug : boolean
+
+        prints status messages for debug purposes
+
+        Returns
+        -------
+        value, status, message
+
+        value: result of the interpolation
+        status: 0 if the input age is within the tracks, 1 to 3 out of tracks edges
+        message: info message connected to the status
+
+        Examples
+        --------
+        This is the top level method that should be called to get the interpolatd
+        values:
+
+        val, code_status, label_status = interpolator_bilinear(mass, age, label, debug=False)
+
+        to find the interpolated value at the specified mass and age
+        At the moment I have implemented 'llum' and 'teff' as labels, note that I am converting
+        all tracks to have 'mass' in solar masses and 'age' in Log10(age/Myr) so implicitly this
+        is what I am assuming. Furthermore, typically I have the 'llum' as Log10(L/Lsun) and
+        'teff' in K.
+
+        """
         #
         states = {0: 'No errors',
                   1: 'Problems with the tracks limits in mass',
@@ -71,9 +150,9 @@ class PMSTracks(object):
             status += 2
         #
         if debug:
-            print('mass={0} mass[{1}]={2} mass[{3}]={4}'.format(mass,im1,self.mass[im1],im2,self.mass[im2]))
-            print('    returned m_status={0} {1}'.format(m_status,ml_status))
-            print('age={0} label={1} interpolated_value:{2}'.format(age,label,int_value))
+            print('mass={0} mass[{1}]={2} mass[{3}]={4}'.format(mass, im1, self.mass[im1], im2, self.mass[im2]))
+            print('    returned m_status={0} {1}'.format(m_status, ml_status))
+            print('age={0} label={1} interpolated_value:{2}'.format(age, label, int_value))
             print('    returned i_status={0} {1}'.format(i_status, il_status))
 
         return int_value, status, states[status]
@@ -86,13 +165,58 @@ class PMSTracks(object):
     #       1: age is below the minimum age of one of the tracks
     #       2: age is above the maximum age of one of the tracks
     def _get_intval(self, im1, im2, mass, age, label):
+        """
+        return the interpolated value between two tracks for the specified label parameter
+
+        This method calls self._my_lint to interpolate each track in age and then interpolates
+        to find the mass. Appropriate states are returned to flag cases where the requested mass
+        and/or age are outside the track boundaries. The returned value correspond to the boundary.
+
+        Parameters
+        ----------
+        im1, 1m2 : long
+
+        indices for the tracks to be used
+
+        mass : float
+
+        value of the mass for which we want to have the interpolation
+
+        age : float
+
+        value of the age for which we want to have the interpolation
+
+        label : string
+
+        dictionary label for the quantity to be interpolated
+
+        Returns
+        -------
+        value, status, message
+
+        value: result of the interpolation
+        status: 0 if the input age is within the tracks, 1 to 8 out of tracks edges
+        message: info message connected to the status
+
+        Examples
+        --------
+        after the self.mass and self.tracks are created and ordered, and after self.interp_age
+        attributes are created, self._find_m1m2() can be used to find the two tracks to be used in
+        the interpolation and then, finally, this method can be called with:
+
+        val, code_status, label_status = self._get_intval(im1, im2, mass, age, label)
+
+        to find the interpolated value at the specified age for the specified track index
+        if masses/ages are out of bounds, the edges are returned and a proper message is returned
+
+        """
         #
-        states = { 0 : 'No errors',
-                   1 : 'Age for lower mass below tracks limits', 2 : 'Age for lower mass above tracks limits',
-                   3 : 'Age for higher mass below tracks limits', 6 : 'Age for higher mass above tracks limits',
-                   4 : 'Age for both masses below tracks limits', 8 : 'Age for both masses above tracks limits',
-                   7 : 'Unexpected age out of limits for both tracks', 5 : 'Unexpected age out of limits for both tracks'
-                   }
+        states = {0: 'No errors',
+                  1: 'Age for lower mass below tracks limits', 2: 'Age for lower mass above tracks limits',
+                  3: 'Age for higher mass below tracks limits', 6: 'Age for higher mass above tracks limits',
+                  4: 'Age for both masses below tracks limits', 8: 'Age for both masses above tracks limits',
+                  7: 'Unexpected age out of limits for both tracks', 5: 'Unexpected age out of limits for both tracks'
+                  }
         #
         int1_value, i1_status, l1_status = self._my_lint(im1, label, age)
         int2_value, i2_status, l2_status = self._my_lint(im2, label, age)
@@ -114,10 +238,53 @@ class PMSTracks(object):
     # used by _get_intval to extract the correct interpolation value and
     #    return an error or warning otherwise
     def _my_lint(self, im, label, age):
+        """
+        return the interpolation value along a specified track for the appropriate label (parameter)
+
+        The method checks whether the age is beyond the track limits and
+        returns an appropriate message.
+
+        This function assumes that self.tracks are appropriately ordered by increasing age and
+        that self.interp_age contain the appropriate interpolation functions
+
+        Parameters
+        ----------
+        im : long
+
+        index for the track to be used
+
+        label : string
+
+        dictionary label for the quantity to be interpolated
+
+        age : float
+
+        value of the age for which we want to have the interpolation
+
+        Returns
+        -------
+        value, status, message
+
+        value: result of the interpolation
+        status: 0 if the input age is within the tracks, 1 if below, 2 if above
+        message: info message connected to the status
+
+        Examples
+        --------
+        after the self.tracks and self.interp_age attributes are created , this method
+        can be called with:
+
+        val, code_status, label_status = self._my_lint(im, label, age)
+
+        to find the interpolated value at the specified age for the specified track index
+        if ages are out of bounds, the edges are returned and a proper message is returned
+
+        """
         #
         intlabel = label+'_int'
         #
-        states = { 0 : 'No errors', 1 : 'Requested age for this mass below tracks limits', 2 : 'Requested age for this mass above tracks limits'}
+        states = {0: 'No errors', 1: 'Requested age for this mass below tracks limits',
+                  2: 'Requested age for this mass above tracks limits'}
         status = 0
         if age < ((self.tracks[im])['lage'])[0]:
             intval = ((self.tracks[im])[label])[0]
@@ -137,8 +304,45 @@ class PMSTracks(object):
     #       1: mass is below the minimum mass of the tracks
     #       2: mass is above the maximum mass of the tracks
     def _find_m1m2(self, m):
+        """
+        Returns the masses of the tracks that bracket the input mass
+
+        The method checks whether the mass is beyond the track limits and
+        returns an appropriate message.
+
+        This function assumes that self.mass is ordered by increasing mass
+
+        Parameters
+        ----------
+        m : float
+
+        mass that we want to bracket
+
+        Returns
+        -------
+        imin, imax, status, message
+
+        imin: index within self.mass for the lower bracket
+        imax: index within self.mass for the upper bracket
+        status: 0 if the input mass is within the tracks, 1 if below, 2 if above
+        message: info message connected to the status
+
+        Examples
+        --------
+        after the self.mass and self.tracks attributes are created and ordered, this method
+        can be called with:
+
+        idx1, idx2, code_status, label_status = self._find_m1m2(mass)
+
+        to find self.mass[idx1] <= mass <= self.mass[idx2]
+        if mass is below self.mass[0], then idx1 = 0 and idx2 = 1, and the code_status = 1
+        if mass is above self.mass[-1], then idx1 = len(self.mass)-2 and idx2 = len(self.mass)-1,
+        and the code_status = 2
+
+        """
         #
-        states = { 0 : 'No errors', 1 : 'Requested mass below tracks limits', 2 : 'Requested mass above tracks limits'}
+        states = {0: 'No errors', 1: 'Requested mass below tracks limits',
+                  2: 'Requested mass above tracks limits'}
         status = 0
         if m < self.mass[0]:
             imin = 0
@@ -167,7 +371,7 @@ class PMSTracks(object):
 
     #
     # This function is the reader for the Siess00 Evolutionary tracks
-    def reader_Siess00(self):
+    def reader_siess00(self):
         """
         Reader for Siess et al. (2000) track files
 
@@ -177,7 +381,6 @@ class PMSTracks(object):
 
         Parameters
         ----------
-        None
 
         Returns
         -------
@@ -192,6 +395,12 @@ class PMSTracks(object):
                 'lage': numpy array of the time steps for this track
                 'llum': numpy array of the log10(L/Lsun) for this track
                 'teff': numpy array of the effective temperatures for this track
+
+        Note: the reader produces tracks with:
+        mass in Msun
+        lage in Log10(age/Myr)
+        llum in Log10(L/Lsun)
+        teff in K
 
         Examples
         --------
@@ -234,7 +443,8 @@ class PMSTracks(object):
 
     #
     # This function is the reader for the BHAC15 Evolutionary tracks
-    def reader_BHAC15(self):
+    @property
+    def reader_bhac15(self):
         """
         Reader for Baraffe et al. (2015) track files
 
@@ -243,7 +453,6 @@ class PMSTracks(object):
 
         Parameters
         ----------
-        None
 
         Returns
         -------
@@ -258,6 +467,12 @@ class PMSTracks(object):
                 'lage': numpy array of the time steps for this track
                 'llum': numpy array of the log10(L/Lsun) for this track
                 'teff': numpy array of the effective temperatures for this track
+
+        Note: the reader produces tracks with:
+        mass in Msun
+        lage in Log10(age/Myr)
+        llum in Log10(L/Lsun)
+        teff in K
 
         Examples
         --------
@@ -285,12 +500,12 @@ class PMSTracks(object):
         f = open(self.infile_models, 'r')
         dowrite = False
         for line in f.readlines():
-            if (doread):
-                if (line[0] == '!'):
-                    if dowrite and (newmass != True):
+            if doread:
+                if line[0] == '!':
+                    if dowrite and (not newmass):
                         tracks.append({'model_mass': mstar[-1], 'mass': mstar[-1] * np.ones(len(age)),
-                                            'nage': len(age), 'lage': np.array(age),
-                                            'llum': np.array(lum), 'teff': np.array(teff) })
+                                       'nage': len(age), 'lage': np.array(age),
+                                       'llum': np.array(lum), 'teff': np.array(teff)})
                         dowrite = False
                         newmass = True
                         age = []
@@ -333,9 +548,9 @@ class PMSTracks(object):
 
         Returns
         -------
-        sort_mass : numpy array
+        sorted_mass : numpy array
             copy of self.mass sorted by increasing mass
-        sort_tracks : list of track disctionaries
+        sorted_tracks : list of track disctionaries
             copy of self.tracks sorted by mass and with the tracks resoted by increasing age
 
         Examples
@@ -347,16 +562,16 @@ class PMSTracks(object):
 
         """
         msort = np.argsort(self.mass)
-        sort_mass = self.mass[msort]
-        sort_tracks = []
+        sorted_mass = self.mass[msort]
+        sorted_tracks = []
         for im in range(len(self.mass)):
-            sort_tracks.append(self.tracks[msort[im]])
-            isort = np.argsort((sort_tracks[im])['lage'])
-            ((sort_tracks[im])['lage'])[:] = ((self.tracks[msort[im]])['lage'])[isort]
-            ((sort_tracks[im])['llum'])[:] = ((self.tracks[msort[im]])['llum'])[isort]
-            ((sort_tracks[im])['teff'])[:] = ((self.tracks[msort[im]])['teff'])[isort]
+            sorted_tracks.append(self.tracks[msort[im]])
+            isort = np.argsort((sorted_tracks[im])['lage'])
+            ((sorted_tracks[im])['lage'])[:] = ((self.tracks[msort[im]])['lage'])[isort]
+            ((sorted_tracks[im])['llum'])[:] = ((self.tracks[msort[im]])['llum'])[isort]
+            ((sorted_tracks[im])['teff'])[:] = ((self.tracks[msort[im]])['teff'])[isort]
 
-        return sort_mass, sort_tracks
+        return sorted_mass, sorted_tracks
 
     #
     # this method sets up the age interpolators
@@ -394,5 +609,3 @@ class PMSTracks(object):
             interp_age.append({'llum_int': spi.interp1d((self.tracks[im])['lage'], (self.tracks[im])['llum']),
                                'teff_int': spi.interp1d((self.tracks[im])['lage'], (self.tracks[im])['teff'])})
         return interp_age
-
-
