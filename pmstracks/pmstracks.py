@@ -443,7 +443,6 @@ class PMSTracks(object):
 
     #
     # This function is the reader for the BHAC15 Evolutionary tracks
-    @property
     def reader_bhac15(self):
         """
         Reader for Baraffe et al. (2015) track files
