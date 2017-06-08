@@ -69,6 +69,14 @@ class PMSTracks(object):
         self.mass, self.tracks = self._sort_tracks()
         self.interp_age = self._tracks_age_interp()
 
+    def __repr__(self):
+        str = '{}'.format(self.tracks_name)
+        return str
+
+    def _pmsname(self):
+        str = '{}'.format(self.tracks_name)
+        return str
+
     #
     # This method uses the scipy.interpolate.interp1d
     #   on ages for the closest mass tracks and then
