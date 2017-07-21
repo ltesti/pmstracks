@@ -616,3 +616,38 @@ class PMSTracks(object):
             interp_age.append({'llum_int': spi.interp1d((self.tracks[im])['lage'], (self.tracks[im])['llum']),
                                'teff_int': spi.interp1d((self.tracks[im])['lage'], (self.tracks[im])['teff'])})
         return interp_age
+
+    def plot_tracks(self, ax, ages=None, masses=None):
+        """
+        Plot evolutionary tracks
+        :param ax:
+        :param ages:
+        :param masses:
+        :return:
+        """
+        # TODO: ages grid are hardcoded. Should they change?
+        if not ages:
+            ages = np.linspace(5.2, 9.7, 50)
+        if not masses:
+            masses = np.array([0.011, 0.014, 0.083, 0.12, 0.17,
+                               0.25, 0.3, 0.35, 0.77, 0.95, 1.05, 1.32])
+
+        nages = len(ages)
+        nmasses = len(masses)
+
+        interp_ls00 = np.zeros((nmasses, nages))
+        interp_ts00 = np.zeros((nmasses, nages))
+        for i in range(nmasses):
+            for j in range(nages):
+                interp_ls00[i, j] = self.interpolator_bilinear(masses[i], ages[j], 'llum')[0]
+                interp_ts00[i, j] = self.interpolator_bilinear(masses[i], ages[j], 'teff')[0]
+
+        # plot evolutionary tracks
+        for i in range(len(self.tracks)):
+            ax.plot((self.tracks[i])['teff'], (self.tracks[i])['llum'],
+                    color='k', linestyle='solid')
+
+        # plot iso-mass tracks
+        for i in range(nmasses):
+            ax.plot(interp_ts00[i, :], interp_ls00[i, :],
+                    color='red', linestyle='dotted')
