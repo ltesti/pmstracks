@@ -61,7 +61,16 @@ class PMSTracks(object):
             if self.verbose:
                 print('{}'.format(self.infile_models))
             self.reader = self.reader_siess00
-
+        elif self.tracks_name == 'F16_std':
+            self.infile_models = glob.glob(os.path.join(self.tracks_path, "*.trk"))
+            if self.verbose:
+                print('{}'.format(self.infile_models))
+            self.reader = self.reader_feiden16_std
+        elif self.tracks_name == 'F16_mag':
+            self.infile_models = glob.glob(os.path.join(self.tracks_path, "*.ntrk"))
+            if self.verbose:
+                print('{}'.format(self.infile_models))
+            self.reader = self.reader_feiden16_mag
         else:
             raise ValueError("No valid reader method specified in pmstracks.")
         #
@@ -76,6 +85,48 @@ class PMSTracks(object):
     def _pmsname(self):
         str = '{}'.format(self.tracks_name)
         return str
+    
+    #
+    # This method determines the two closest tracks from a given (L, T) point
+    #   the idea is to use this to identify the two closest tracks and then interpolate
+    #   to get the stellar mass and age from tracks.
+    def _iso_dist(lstar,tstar,mytrack):
+        '''
+        this utility function returns the minimum distance from a track, the corresponding signed
+        luminosity and teff difference, and the indices of the two nearest point
+        '''
+        dl = (lstar-mytrack['llum'])
+        dt = (np.log10(tstar)-np.log10(mytrack['teff']))
+        dd = np.sqrt(dl**2.+dt**2.)
+        ns = np.argsort(dd)
+        return dd[ns[0]], dl[ns[0]], dt[ns[0]], ns[0], ns[1]
+        
+    def _get_trk_dist(self,lstar,tstar):
+        '''
+        this utility function returns the filled lists with minimum distance,
+        luminosity and teff difference, and the indices of the two nearest point
+        '''
+        dd = []
+        dl = []
+        dt = []
+        n0 = []
+        n1 = []
+        for i in range(len(self.mass)):
+            ddt, dlt, dtt, n0t, n1t = self._iso_dist(lstar,tstar,self.tracks[i])
+            dd.append(ddt)
+            dl.append(dlt)
+            dt.append(dtt)
+            n0.append(n0t)
+            n1.append(n1t)
+        return dd, dl, dt, n0, n1
+
+    def two_iso(self,lstar,tstar):
+        '''
+        this utility function returns the minimum distance from a track, the corresponding signed
+        luminosity and teff difference, and the indices of the two nearest point
+        '''
+        ddt, dlt, dtt, n0t, n1t = self._get_trk_dist(lstar,tstar)
+        
 
     #
     # This method uses the scipy.interpolate.interp1d
@@ -376,6 +427,154 @@ class PMSTracks(object):
                         imin = itry
         #
         return imin, imax, status, states[status]
+
+    def reader_feiden16_std(self):
+        """
+        Reader for Feiden et al. (2016) standard track files
+
+        The track files are downloaded from the github 
+        https://github.com/gfeiden/MagneticUpperSco 
+        server and not edited
+        The location of the tracks are defined by the attribute self.infile_models,
+        which, in this case, is a list contaning all the files that need to be read.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        mass, tracks
+
+        mass: a numpy array containing the mass of each track
+
+        tracks: a list of dictionaries containing all the tracks data
+                'model_mass': mass for the track
+                'mass': numpy array containing the same mass for each timestep (redundant, could be removed)
+                'nage': number of time steps in the track (redundant, could be removed)
+                'lage': numpy array of the time steps for this track
+                'llum': numpy array of the log10(L/Lsun) for this track
+                'teff': numpy array of the effective temperatures for this track
+
+        Note: the reader produces tracks with:
+        mass in Msun
+        lage in Log10(age/Myr)
+        llum in Log10(L/Lsun)
+        teff in K
+
+        Examples
+        --------
+        after defining self.infile_models so that is points to the file containing the tracks,
+        running:
+
+        self.mass, self.tracks = self.reader_BHAC15()
+
+        will read the file and fill in the self.mass and self.tracks attributes
+
+        """
+        #
+        # Define the file to read
+        #
+        mstar = []
+        tracks = []
+        for i_f in self.infile_models:
+            age = []
+            lum = []
+            teff = []
+            if self.verbose:
+                print("Reading file: {}".format(i_f))
+            f = open(i_f, 'r')
+            for line in f.readlines():
+                if line[0] != '#':
+                    columns = line.split()
+                    age.append(np.log10(float(columns[0])))
+                    lum.append(float(columns[3]))
+                    teff.append(10**float(columns[1]))
+                else:
+                    if len(line) > 8:
+                        if line[2] == 'M':
+                            mstar.append(float(line[4:8]))
+            f.close()
+            tracks.append({'model_mass': mstar[-1], 'mass': mstar[-1] * np.ones(len(age)),
+                           'nage': len(age), 'lage': np.array(age),
+                           'llum': np.array(lum), 'teff': np.array(teff)})
+            #
+            if self.verbose:
+                print("    Model Mass: {0}  nages={1}  age_start={2}  age_end={3}".format(mstar[-1],len(age),age[0],age[-1]))
+        return np.array(mstar), tracks
+
+    def reader_feiden16_mag(self):
+        """
+        Reader for Feiden et al. (2016) magnetic track files
+
+        The track files are downloaded from the github 
+        https://github.com/gfeiden/MagneticUpperSco 
+        server and not edited
+        The location of the tracks are defined by the attribute self.infile_models,
+        which, in this case, is a list contaning all the files that need to be read.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        mass, tracks
+
+        mass: a numpy array containing the mass of each track
+
+        tracks: a list of dictionaries containing all the tracks data
+                'model_mass': mass for the track
+                'mass': numpy array containing the same mass for each timestep (redundant, could be removed)
+                'nage': number of time steps in the track (redundant, could be removed)
+                'lage': numpy array of the time steps for this track
+                'llum': numpy array of the log10(L/Lsun) for this track
+                'teff': numpy array of the effective temperatures for this track
+
+        Note: the reader produces tracks with:
+        mass in Msun
+        lage in Log10(age/Myr)
+        llum in Log10(L/Lsun)
+        teff in K
+
+        Examples
+        --------
+        after defining self.infile_models so that is points to the file containing the tracks,
+        running:
+
+        self.mass, self.tracks = self.reader_BHAC15()
+
+        will read the file and fill in the self.mass and self.tracks attributes
+
+        """
+        #
+        # Define the file to read
+        #
+        mstar = []
+        tracks = []
+        for i_f in self.infile_models:
+            age = []
+            lum = []
+            teff = []
+            if self.verbose:
+                print("Reading file: {}".format(i_f))
+            f = open(i_f, 'r')
+            for line in f.readlines():
+                if len(line) > 23:
+                    if line[0] != '#':
+                        columns = line.split()
+                        age.append(np.log10(float(columns[2]))+9.)
+                        lum.append(float(columns[3]))
+                        teff.append(10**float(columns[6]))
+                    else:
+                        if line[2:12] == 'Total mass':
+                            mstar.append(float(line[16:23]))
+            if self.verbose:
+                print("    Model Mass: {0}  nages={1}  age_start={2}  age_end={3}".format(mstar[-1],len(age),age[0],age[-1]))
+            f.close()
+            tracks.append({'model_mass': mstar[-1], 'mass': mstar[-1] * np.ones(len(age)),
+                           'nage': len(age), 'lage': np.array(age),
+                           'llum': np.array(lum), 'teff': np.array(teff)})
+            #
+        return np.array(mstar), tracks
 
     #
     # This function is the reader for the Siess00 Evolutionary tracks
