@@ -26,7 +26,7 @@ setup(
     include_package_data=True,
     install_requires=["matplotlib","numpy", "scipy"],
     classifiers=[
-        "Development Status :: 0 - Alpha",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         # "License :: OSI Approved :: MIT License",
