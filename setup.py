@@ -20,8 +20,8 @@ setup(
     description="Pre main sequence tracks utilities",
     long_description=open("README.md").read() + "\n\n"
                     + "Changelog\n"
-                    + "---------\n\n"
-                    + open("HISTORY.rst").read(),
+                    + "---------\n\n",
+                    # + open("HISTORY.rst").read(),
     package_data={"": ["LICENSE", "AUTHORS.rst"]},
     include_package_data=True,
     install_requires=["matplotlib","numpy", "scipy"],
