@@ -1,0 +1,21 @@
+Models of Baraffe, Chabrier, Barman, 2008, A&A, in press
+
+Grid of models from 10 Mearth to 10 Mjup. Each file contains
+4 tables corresponding to different heavy material enrichments Z: 
+TABLE 1: Z=0.02
+TABLE 2: Z=0.10
+TABLE 3: Z=0.50
+TABLE 4: Z=0.90
+
+The files are:
+
+- Isochrones: PLANET08_iso.noirrad (no irradiation effects)
+              PLANET08_iso.irrad (irradiation from a Sun at 0.045 AU)
+
+- Tracks: PLANET08_tracks.noirrad (no irradiation effects)
+          PLANET08_tracks.irrad (irradiation from a Sun at 0.045 AU)
+
+
+
+Note: for special requests (e.g other ages or finer time resolution),
+      ask directly to I. Baraffe
