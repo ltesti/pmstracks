@@ -17,8 +17,9 @@ import matplotlib
 if matplotlib.get_backend().lower() == 'macosx':
     matplotlib.use('TkAgg')
 
-print('{}'.format(__path__))
-TRACKS_DIR = os.path.join(os.path.split(__path__[0])[0],'tracks')
+#print('{}'.format(__path__))
+#TRACKS_DIR = os.path.join(os.path.split(__path__[0])[0],'tracks')
+TRACKS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),'tracks')
 
 print('tracks_dir: '+TRACKS_DIR)
 

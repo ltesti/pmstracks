@@ -54,7 +54,7 @@ class PMSTracks(object):
         self.tracks_path = os.path.join(TRACKS_DIR, self.tracks_name)
 
         if self.tracks_name == 'BHAC15':
-            self.infile_models = os.path.join(self.tracks_path, 'BHAC15_tracks+structure')
+            self.infile_models = os.path.join(self.tracks_path, 'BHAC15_tracks_structure')
             self.reader = self.reader_bhac15
         elif self.tracks_name == 'Siess00':
             self.infile_models = glob.glob(os.path.join(self.tracks_path, "*.hrd"))

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # from numpy.distutils.core import setup, Extension
 from setuptools import setup, find_packages
+import os
 
 # set the version number
 with open('pmstracks/_version.py') as f:
