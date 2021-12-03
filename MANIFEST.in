@@ -1,5 +1,4 @@
 include README.md
 include AUTHORS.rst
 include LICENSE
-include pmstracks/tracks/*
-#recursive-include pmstracks/tracks *
+recursive-include tracks *
