@@ -19,11 +19,10 @@ setup(
     url="https://github.com/ltesti/pmstracks/",
     license="GPL",
     description="Pre main sequence tracks utilities",
-    long_description=open("README.md").read() + "\n\n"
-                    + "Changelog\n"
-                    + "---------\n\n",
-                    # + open("HISTORY.rst").read(),
-    package_data={"": ["LICENSE", "AUTHORS.rst"]},
+    long_description=open("README.md").read() + "\n\n",
+    package_data={"": ["LICENSE", "AUTHORS.rst"], 
+                  "pmstracks": ["tracks/*"]},
+    setup_requires=['setuptools_scm'],
     include_package_data=True,
     install_requires=["matplotlib","numpy", "scipy"],
     classifiers=[
